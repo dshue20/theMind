@@ -25,6 +25,7 @@ export default class Game extends Phaser.Scene {
         let self = this;
         this.isPlayerA = false;
         this.opponentCards = [];
+        this.allCards = [];
         this.level = 1;
         this.numPlayers = 0;
         this.gameStarted = false;
@@ -32,6 +33,7 @@ export default class Game extends Phaser.Scene {
         this.oppositePlayer;
         this.leftPlayer;
         this.rightPlayer;
+        this.whichPlayer;
 
         this.socket = io('http://localhost:3000');
 
@@ -51,14 +53,16 @@ export default class Game extends Phaser.Scene {
         	self.isPlayerA = true;
         });
 
-        this.socket.on('dealCards', function () {
-            self.dealer.dealCards(self.level, self.numPlayers);
+        this.socket.on('dealCards', function (cards) {
+            self.allCards = cards.flat();
+            self.dealer.dealCards(self.whichPlayer, cards);
             self.gameStarted = true;
             self.dealText.destroy();
         });
 
         this.socket.on('drawNames', function (names, gameStarted) {
             if (!gameStarted){
+                self.whichPlayer = names.filter(hash => hash['id'] === self.socket.id)[0]['player'];
                 names = names.filter(hash => hash['id'] !== self.socket.id).map(hash => hash['name']);
                 console.log('names', names, gameStarted);
                 self.numPlayers = names.length + 1;
@@ -72,9 +76,7 @@ export default class Game extends Phaser.Scene {
                     self.rightPlayer.angle += 270;
                 };
             } else if (gameStarted && !self.gameStarted) {
-                console.log('game started message', self.outline);
                 self.dropZone.destroy();
-                // self.zone.destroy();
                 self.dealText.destroy();
                 self.add.text(450, 150, ['Sorry, the game has already begun']).setFontSize(32).setFontFamily('Trebuchet MS').setColor('white');
             }
@@ -107,7 +109,7 @@ export default class Game extends Phaser.Scene {
         this.outline = this.zone.renderOutline(this.dropZone);
 
 		this.dealText.on('pointerdown', function () {
-            self.socket.emit("dealCards");
+            self.socket.emit("dealCards", self.level, self.numPlayers);
         });
 
         this.dealText.on('pointerover', function () {
