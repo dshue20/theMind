@@ -3,6 +3,7 @@ import Card from './card';
 export default class Dealer {
     constructor(scene) {
         this.dealCards = (level, numPlayers) => {
+            scene.gameStarted = true;
             let nums = [];
             for (let i=1; i <= 100; i++){
                 nums.push(i);

@@ -29,6 +29,9 @@ export default class Game extends Phaser.Scene {
         this.numPlayers = 0;
         this.gameStarted = false;
         this.dealer = new Dealer(this);
+        this.oppositePlayer;
+        this.leftPlayer;
+        this.rightPlayer;
 
         this.socket = io('http://localhost:3000');
 
@@ -40,7 +43,7 @@ export default class Game extends Phaser.Scene {
                 const name = prompt('Please enter your name: ');
                 self.add.text(100, 700, [name + '(You)']).setFontSize(24).setFontFamily('Trebuchet MS').setColor('white');
                 self.socket.emit('checkName', name);
-                self.socket.emit('drawNames', name);
+                self.socket.emit('drawNames');
             };
         });
 
@@ -50,23 +53,44 @@ export default class Game extends Phaser.Scene {
 
         this.socket.on('dealCards', function () {
             self.dealer.dealCards(self.level, self.numPlayers);
+            self.gameStarted = true;
             self.dealText.destroy();
         });
 
-        this.socket.on('drawNames', function (names) {
-            names = names.filter(hash => hash['id'] !== self.socket.id).map(hash => hash['name']);
-            console.log('names', names);
-            self.numPlayers = names.length + 1;
-            if (names[0]) self.add.text(1200, 80, [names[0]]).setFontSize(24).setFontFamily('Trebuchet MS').setColor('white');
-            if (names[1]){
-                const leftPlayer = self.add.text(300, 80, [names[1]]).setFontSize(24).setFontFamily('Trebuchet MS').setColor('white');
-                leftPlayer.angle += 90;
-            };
-            if (names[2]){
-                const rightPlayer = self.add.text(1050, 600, [names[2]]).setFontSize(24).setFontFamily('Trebuchet MS').setColor('white');
-                rightPlayer.angle += 270;
-            };
+        this.socket.on('drawNames', function (names, gameStarted) {
+            if (!gameStarted){
+                names = names.filter(hash => hash['id'] !== self.socket.id).map(hash => hash['name']);
+                console.log('names', names, gameStarted);
+                self.numPlayers = names.length + 1;
+                if (names[0]) self.oppositePlayer = self.add.text(1200, 80, [names[0]]).setFontSize(24).setFontFamily('Trebuchet MS').setColor('white');
+                if (names[1]){
+                    self.leftPlayer = self.add.text(300, 80, [names[1]]).setFontSize(24).setFontFamily('Trebuchet MS').setColor('white');
+                    self.leftPlayer.angle += 90;
+                };
+                if (names[2]){
+                    self.rightPlayer = self.add.text(1050, 600, [names[2]]).setFontSize(24).setFontFamily('Trebuchet MS').setColor('white');
+                    self.rightPlayer.angle += 270;
+                };
+            } else if (gameStarted && !self.gameStarted) {
+                console.log('game started message', self.outline);
+                self.dropZone.destroy();
+                // self.zone.destroy();
+                self.dealText.destroy();
+                self.add.text(450, 150, ['Sorry, the game has already begun']).setFontSize(32).setFontFamily('Trebuchet MS').setColor('white');
+            }
         });
+
+        this.socket.on('redrawNames', function (names) {
+            self.numPlayers -= 1;
+            console.log('redrawNames', names);
+            if (names.length === 1){
+                self.oppositePlayer.destroy();
+            } else if (names.length === 2){
+                self.leftPlayer.destroy();
+            } else {
+                self.rightPlayer.destroy();
+            }
+        })
 
         this.socket.on('cardPlayed', function (gameObject, isPlayerA) {
             if (isPlayerA !== self.isPlayerA) {
